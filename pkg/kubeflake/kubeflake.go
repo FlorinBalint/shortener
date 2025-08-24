@@ -80,7 +80,7 @@ type Settings struct {
 	BitsMachine  int
 
 	TimeUnit  time.Duration
-	Base      BaseEncoder
+	Base      BaseConverter
 	EpochTime time.Time
 	ClusterId func() (int, error)
 	MachineId func() (int, error)
@@ -102,7 +102,7 @@ type Kubeflake struct {
 	elapsedTime uint64
 
 	sequence uint64
-	encoder  BaseEncoder
+	encoder  BaseConverter
 	nowFunc  func() time.Time
 }
 
@@ -187,7 +187,7 @@ func New(settings Settings) (*Kubeflake, error) {
 	if settings.Base != nil {
 		k8sFlake.encoder = settings.Base
 	} else {
-		k8sFlake.encoder = Base62Encoder{}
+		k8sFlake.encoder = Base62Converter{}
 	}
 
 	return k8sFlake, nil

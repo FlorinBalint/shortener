@@ -6,15 +6,17 @@ const base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw
 
 var base62Bytes = []byte(base62Chars)
 
-type BaseEncoder interface {
+type BaseConverter interface {
 	Encode(n uint64) string
 	Decode(s string) (uint64, error)
 }
 
-type Base62Encoder struct{}
+var _ BaseConverter = (*Base62Converter)(nil)
+
+type Base62Converter struct{}
 
 // EncodeBase62 converts an uint64 to a base62-encoded string.
-func (Base62Encoder) Encode(n uint64) string {
+func (Base62Converter) Encode(n uint64) string {
 	if n == 0 {
 		return "0"
 	}
@@ -28,7 +30,7 @@ func (Base62Encoder) Encode(n uint64) string {
 }
 
 // DecodeBase62 converts a base62-encoded string to an uint64
-func (Base62Encoder) Decode(s string) (uint64, error) {
+func (Base62Converter) Decode(s string) (uint64, error) {
 	var result uint64
 	for i := 0; i < len(s); i++ {
 		char := s[i]

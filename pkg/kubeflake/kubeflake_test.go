@@ -21,7 +21,7 @@ func validSettings() Settings {
 		MachineId: func() (int, error) {
 			return 5, nil
 		},
-		Base: Base62Encoder{},
+		Base: Base62Converter{},
 	}
 }
 
@@ -476,7 +476,7 @@ func TestDecomposeKey_InvalidBase(t *testing.T) {
 }
 
 func TestBase62_EncodeDecode_RoundTrip(t *testing.T) {
-	b := Base62Encoder{}
+	b := Base62Converter{}
 	values := []uint64{
 		0, 1, 61, 62, 63, 12345, 1<<32 - 1, 1<<40 + 123, 1<<63 - 1, // up to u64 across
 	}
