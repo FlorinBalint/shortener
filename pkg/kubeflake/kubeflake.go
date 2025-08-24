@@ -56,7 +56,7 @@ var (
 //
 // BitsCluster is the bit length of a cluster ID.
 // If BitsCluster is 0, the default bit length is used, which is 8.
-// If BitsCluster is 9 or more (more than 124 clusters), an error is returned.
+// If BitsCluster is 9 or more (more than 256 clusters), an error is returned.
 //
 // TimeUnit is the time unit of Kubeflake.
 // If TimeUnit is 0, the default time unit is used, which is 10 msec.
@@ -102,7 +102,7 @@ type Kubeflake struct {
 	elapsedTime uint64
 
 	sequence uint64
-	encoder  BaseConverter
+	base     BaseConverter
 	nowFunc  func() time.Time
 }
 
@@ -185,9 +185,9 @@ func New(settings Settings) (*Kubeflake, error) {
 	}
 
 	if settings.Base != nil {
-		k8sFlake.encoder = settings.Base
+		k8sFlake.base = settings.Base
 	} else {
-		k8sFlake.encoder = Base62Converter{}
+		k8sFlake.base = Base62Converter{}
 	}
 
 	return k8sFlake, nil
@@ -213,7 +213,7 @@ func (kf *Kubeflake) NextKey() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return kf.encoder.Encode(id), nil
+	return kf.base.Encode(id), nil
 }
 
 // NextID generates a next unique ID as uint64.
@@ -256,7 +256,7 @@ func (kf *Kubeflake) ComposeKey(t time.Time, sequence, machineID, clusterId int)
 	if err != nil {
 		return "", err
 	}
-	return kf.encoder.Encode(id), nil
+	return kf.base.Encode(id), nil
 }
 
 func (kf *Kubeflake) Compose(t time.Time, sequence, machineID, clusterId int) (uint64, error) {
@@ -288,7 +288,7 @@ func (kf *Kubeflake) Compose(t time.Time, sequence, machineID, clusterId int) (u
 }
 
 func (kf *Kubeflake) DecomposeKey(key string) (map[IdParts]uint64, error) {
-	id, err := kf.encoder.Decode(key)
+	id, err := kf.base.Decode(key)
 	if err != nil {
 		return nil, err
 	}

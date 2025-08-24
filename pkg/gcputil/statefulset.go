@@ -66,9 +66,9 @@ func (p *StatefulSetPod) PodName() (string, error) {
 	return "", ErrPodNameNotFound
 }
 
-// ID returns the StatefulSet ordinal (0-based) parsed from the pod name.
-// For a pod name like "web-2", ID() returns 2.
-func (p *StatefulSetPod) ID() (int, error) {
+// PodID returns the StatefulSet ordinal (0-based) parsed from the pod name.
+// For a pod name like "web-2", PodID() returns 2.
+func (p *StatefulSetPod) PodID() (int, error) {
 	name, err := p.PodName()
 	if err != nil {
 		return 0, err
