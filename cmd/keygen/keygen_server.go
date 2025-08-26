@@ -11,8 +11,8 @@ import (
 
 var (
 	listenAddr   = flag.String("address", ":8083", "HTTP listen address")
-	bitsMachine  = flag.Int("bits.machine", 10, "Number of bits for machine ID")
-	bitsSequence = flag.Int("bits.sequence", 16, "Number of bits for sequence ID")
+	bitsMachine  = flag.Int("bits.machine", 6, "Number of bits for machine ID")
+	bitsSequence = flag.Int("bits.sequence", 11, "Number of bits for sequence ID")
 	bitsCluster  = flag.Int("bits.cluster", 7, "Number of bits for cluster ID")
 )
 

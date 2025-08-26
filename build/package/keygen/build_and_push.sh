@@ -11,7 +11,7 @@ set -euo pipefail
 #   ./build/package/keygen/build_and_push.sh
 
 PROJECT_ID="${PROJECT_ID:-}"
-REGION="${REGION:-europe-west2}"
+REGION="${REGION:-us-central1}"
 REPO="${REPO:-shortener}"
 IMAGE="${IMAGE:-keygen}"
 
@@ -71,7 +71,6 @@ ensure_gcloud_auth() {
       --repository-format=docker \
       --location="${REGION}" \
       --description="Shortener images" \
-      --immutable-tags
   fi
 
   # Configure docker auth helper
