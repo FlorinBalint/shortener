@@ -34,6 +34,8 @@ go.work.sum
 # Local .terraform directories
 /deployments/.terraform/
 .terraform/
+*.kubeconfig
+/deployments/*.kubeconfig
 
 # .tfstate files
 *.tfstate
