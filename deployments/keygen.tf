@@ -1,16 +1,14 @@
 locals {
   # Per-service overrides
   keygen_image = "keygen"
+  headless_svc_port = 8083
+  keygen_pod_port = 8083
 }
 
 resource "kubernetes_namespace" "shortener" {
   metadata {
     name = var.namespace
   }
-
-  depends_on = [
-    null_resource.get_kubeconfig,
-  ]
 }
 
 resource "kubernetes_service" "keygen_headless" {
@@ -18,7 +16,7 @@ resource "kubernetes_service" "keygen_headless" {
     name      = "${var.app_name}-keygen-headless"
     namespace = kubernetes_namespace.shortener.metadata[0].name
     labels = {
-      app = "${var.app_name}-keygen-service"
+      app = "${var.app_name}-keygen"
     }
   }
   spec {
@@ -28,13 +26,38 @@ resource "kubernetes_service" "keygen_headless" {
     }
     port {
       name        = "http"
-      port        = var.service_port
-      target_port = var.service_port
+      port        = local.headless_svc_port
+      target_port = local.headless_svc_port
     }
   }
 
   depends_on = [
-    null_resource.get_kubeconfig,
+    kubernetes_namespace.shortener,
+  ]
+}
+
+resource "kubernetes_service" "keygen-svc" {
+  metadata {
+    name      = "${var.app_name}-keygen-svc"
+    namespace = kubernetes_namespace.shortener.metadata[0].name
+    labels = {
+      app = "${var.app_name}-keygen-svc"
+    }
+  }
+  spec {
+    selector = {
+      app = "${var.app_name}-keygen"
+    }
+    port {
+      name        = "http"
+      port        = local.headless_svc_port
+      target_port = local.headless_svc_port
+    }
+    type = "ClusterIP"
+  }
+
+  depends_on = [
+    kubernetes_namespace.shortener,
   ]
 }
 
@@ -52,7 +75,7 @@ resource "kubernetes_stateful_set" "keygen" {
 
     selector {
       match_labels = {
-        app = var.app_name
+        app = "${var.app_name}-keygen"
       }
     }
     template {
@@ -62,24 +85,29 @@ resource "kubernetes_stateful_set" "keygen" {
         }
       }
       spec {
-        service_account_name = "default"
         container {
           name              = "keygen"
-          image             = "${local.reg_region}-docker.pkg.dev/${var.project_id}/${var.repo}/${local.keygen_image}:${var.image_tag}"
+          image             = "${local.reg_region}-docker.pkg.dev/${local.actual_project}/${var.repo}/${local.keygen_image}:${var.image_tag}"
           image_pull_policy = "Always"
           args              = (length(var.container_args) > 0 ? var.container_args : ["-address=:8083"])
           port {
             name           = "http"
-            container_port = var.service_port
+            container_port = local.keygen_pod_port
           }
           resources {
-            limits   = { cpu = "500m", memory = "256Mi" }
-            requests = { cpu = "100m", memory = "64Mi" }
+            limits = {
+              cpu    = "500m"
+              memory = "256Mi"
+            }
+            requests = {
+              cpu    = "100m"
+              memory = "64Mi"
+            }
           }
           readiness_probe {
             http_get {
               path = "/health"
-              port = var.service_port
+              port = local.keygen_pod_port
             }
             initial_delay_seconds = 3
             period_seconds        = 5
@@ -87,7 +115,7 @@ resource "kubernetes_stateful_set" "keygen" {
           liveness_probe {
             http_get {
               path = "/health"
-              port = var.service_port
+              port = local.keygen_pod_port
             }
             initial_delay_seconds = 10
             period_seconds        = 10
@@ -98,14 +126,13 @@ resource "kubernetes_stateful_set" "keygen" {
   }
 
   depends_on = [
-    google_container_node_pool.primary_nodes,
-    null_resource.get_kubeconfig,
+    kubernetes_namespace.shortener,
   ]
 }
 
-resource "kubernetes_horizontal_pod_autoscaler_v2" "keygen" {
+resource "kubernetes_horizontal_pod_autoscaler_v2" "keygen-hpa" {
   metadata {
-    name      = "${var.app_name}-keygen-hpa"
+    name      = var.app_name
     namespace = kubernetes_namespace.shortener.metadata[0].name
   }
   spec {
@@ -129,7 +156,7 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "keygen" {
   }
 
   depends_on = [
+    kubernetes_namespace.shortener,
     kubernetes_stateful_set.keygen,
-    null_resource.get_kubeconfig,
   ]
 }

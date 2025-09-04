@@ -6,12 +6,8 @@ terraform {
   }
 }
 
-provider "google" {
-  project = var.project_id
-}
+provider "google" {}
 
 provider "kubernetes" {
-  # Use the kubeconfig written by null_resource.get_kubeconfig
-  config_path = "${path.module}/.kubeconfig"
-  # Do NOT force a context here; use the kubeconfig's current-context set by gcloud
+  config_path = pathexpand("~/.kube/config")
 }

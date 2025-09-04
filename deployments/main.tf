@@ -1,18 +1,35 @@
+# Detect from ADC and gcloud config (fallback)
+data "google_client_config" "default" {}
+
+data "external" "gcloud_project" {
+  program = [
+    "bash", "-lc",
+    "p=$(gcloud config get-value project 2>/dev/null || true); printf '{\"project\":\"%s\"}\n' \"$p\""
+  ]
+}
+
 locals {
-  // Derive region from zone without regex
+  # Derive region from zone without regex
   parts          = split("-", var.location)
   derived_region = length(local.parts) == 3 ? join("-", slice(local.parts, 0, 2)) : var.location
   reg_region     = var.registry_region != "" ? var.registry_region : local.derived_region
 
-  // Path where we write kubeconfig for this cluster
+  # Kubeconfig for this module
   kubeconfig_path = "${path.module}/.kubeconfig"
+
+  # Auto-detected project (TF var -> gcloud config -> provider client_config)
+  actual_project = coalesce(
+    var.project_id,
+    try(data.external.gcloud_project.result.project, ""),
+    try(data.google_client_config.default.project, "")
+  )
 }
 
 resource "google_container_cluster" "primary" {
+  project  = local.actual_project
   name     = var.cluster_name
   location = var.location
 
-  // Let us manage the node pool below
   remove_default_node_pool = true
   initial_node_count       = 1
 
@@ -21,17 +38,26 @@ resource "google_container_cluster" "primary" {
   subnetwork      = "default"
 
   release_channel {
-    channel = "REGULAR"
+    channel = "STABLE"
   }
 
   workload_identity_config {
-    workload_pool = "${var.project_id}.svc.id.goog"
+    workload_pool = "${local.actual_project}.svc.id.goog"
   }
 
   ip_allocation_policy {}
+
+  lifecycle {
+    prevent_destroy = true
+    precondition {
+      condition     = length(local.actual_project) > 0
+      error_message = "No GCP project detected."
+    }
+  }
 }
 
 resource "google_container_node_pool" "primary_nodes" {
+  project    = local.actual_project
   name       = "${var.cluster_name}-pool"
   location   = var.location
   cluster    = google_container_cluster.primary.name
@@ -40,10 +66,8 @@ resource "google_container_node_pool" "primary_nodes" {
   node_config {
     machine_type = var.node_machine_type
     disk_size_gb = var.node_disk_size_gb
-    disk_type    = var.node_disk_type // ensure non-SSD to avoid SSD_TOTAL_GB
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
+    disk_type    = var.node_disk_type
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
     metadata = {
       disable-legacy-endpoints = "true"
     }
@@ -58,16 +82,16 @@ resource "google_container_node_pool" "primary_nodes" {
   }
 }
 
-# Write kubeconfig for this cluster before any Kubernetes resources
+# Write kubeconfig before any Kubernetes resources
 resource "null_resource" "get_kubeconfig" {
   triggers = {
     cluster  = google_container_cluster.primary.name
     location = google_container_cluster.primary.location
-    project  = var.project_id
+    project  = local.actual_project
   }
 
   provisioner "local-exec" {
-    command = "KUBECONFIG='${local.kubeconfig_path}' gcloud container clusters get-credentials ${google_container_cluster.primary.name} --location ${google_container_cluster.primary.location} --project ${var.project_id}"
+    command = "KUBECONFIG='${local.kubeconfig_path}' gcloud container clusters get-credentials ${google_container_cluster.primary.name} --location ${google_container_cluster.primary.location} --project ${local.actual_project}"
   }
 }
 

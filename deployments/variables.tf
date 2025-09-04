@@ -1,10 +1,11 @@
 variable "project_id" {
-  description = "GCP project ID"
+  description = "GCP project ID (optional; auto-detected if empty)"
   type        = string
+  default     = ""
 }
 
 variable "location" {
-  description = "GKE cluster location; must be a ZONE like europe-west2-b"
+  description = "GKE cluster location; must be a ZONE like us-central1-a"
   type        = string
   default     = "us-central1-a"
 
@@ -57,18 +58,6 @@ variable "app_name" {
   default     = "shortener"
 }
 
-variable "service_port" {
-  description = "Service and container port"
-  type        = number
-  default     = 8083
-}
-
-variable "headless_service_name" {
-  description = "Headless service name; defaults to <app_name>-headless when empty"
-  type        = string
-  default     = ""
-}
-
 variable "min_replicas" {
   description = "Minimum replicas for HPA/StatefulSet"
   type        = number
@@ -92,11 +81,6 @@ variable "repo" {
   description = "Artifact Registry repository name"
   type        = string
   default     = "shortener"
-}
-
-variable "image" {
-  description = "Image name"
-  type        = string
 }
 
 variable "image_tag" {
