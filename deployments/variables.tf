@@ -95,3 +95,9 @@ variable "registry_region" {
   type        = string
   default     = "us-central1"
 }
+
+variable "ds_endpoint" {
+  description = "Endpoint to the Datastore instance"
+  type        = string
+  default     = ""
+}

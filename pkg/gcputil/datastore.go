@@ -92,12 +92,14 @@ func (c *DSClient) GetJSON(ctx ctx.Context, kind, name string, out any) ([]byte,
 }
 
 // PutValue stores a typed value as JSON (T -> JSON).
-func PutValue[T any](client *DSClient, ctx ctx.Context, kind, name string, v T) error {
+func PutNewValue[T any](client *DSClient, ctx ctx.Context, kind, name string, v T) error {
 	j, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	_, err = client.client.Put(ctx, client.key(kind, name), &jsonBlob{Raw: j})
+
+	_, err = client.client.Mutate(ctx,
+		datastore.NewInsert(client.key(kind, name), &jsonBlob{Raw: j}))
 	return err
 }
 

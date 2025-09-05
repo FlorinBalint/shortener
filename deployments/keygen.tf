@@ -1,8 +1,8 @@
 locals {
   # Per-service overrides
-  keygen_image = "keygen"
+  keygen_image      = "keygen"
   headless_svc_port = 8083
-  keygen_pod_port = 8083
+  keygen_pod_port   = 8083
 }
 
 resource "kubernetes_namespace" "shortener" {

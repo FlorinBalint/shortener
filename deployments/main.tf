@@ -63,6 +63,12 @@ resource "google_container_node_pool" "primary_nodes" {
   cluster    = google_container_cluster.primary.name
   node_count = var.node_count
 
+  # Enable autoscaling for the node pool so the cluster can grow/shrink
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 6
+  }
+
   node_config {
     machine_type = var.node_machine_type
     disk_size_gb = var.node_disk_size_gb

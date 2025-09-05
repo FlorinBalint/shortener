@@ -26,7 +26,7 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) CreateEntry(ctx ctx.Context, key UrlKey, entry URLEntry) error {
-	return gcputil.PutValue(c.client, ctx, "url_entry", string(key), entry)
+	return gcputil.PutNewValue(c.client, ctx, "url_entry", string(key), entry)
 }
 
 func (c *Client) GetEntry(ctx ctx.Context, urlKey UrlKey) (URLEntry, error) {
