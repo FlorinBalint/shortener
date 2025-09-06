@@ -61,6 +61,38 @@ resource "kubernetes_service" "keygen-svc" {
   ]
 }
 
+# Google SA for keygen (no project roles granted)
+resource "google_service_account" "keygen_sa" {
+  project      = local.actual_project
+  account_id   = "${var.app_name}-keygen"
+  display_name = "Keygen Workload Identity"
+}
+
+# Kubernetes SA for keygen, annotated for Workload Identity
+resource "kubernetes_service_account" "keygen" {
+  metadata {
+    name      = "${var.app_name}-keygen"
+    namespace = kubernetes_namespace.shortener.metadata[0].name
+    labels = {
+      app = "${var.app_name}-keygen"
+    }
+    annotations = {
+      "iam.gke.io/gcp-service-account" = google_service_account.keygen_sa.email
+    }
+  }
+}
+
+# Allow the KSA to impersonate the GSA (Workload Identity binding)
+resource "google_service_account_iam_member" "keygen_wi" {
+  service_account_id = google_service_account.keygen_sa.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${local.actual_project}.svc.id.goog[${var.namespace}/${kubernetes_service_account.keygen.metadata[0].name}]"
+
+  depends_on = [
+    kubernetes_service_account.keygen,
+  ]
+}
+
 resource "kubernetes_stateful_set" "keygen" {
   metadata {
     name      = "${var.app_name}-keygen"
@@ -85,6 +117,9 @@ resource "kubernetes_stateful_set" "keygen" {
         }
       }
       spec {
+        # Run as dedicated KSA (not default)
+        service_account_name = kubernetes_service_account.keygen.metadata[0].name
+
         container {
           name              = "keygen"
           image             = "${local.reg_region}-docker.pkg.dev/${local.actual_project}/${var.repo}/${local.keygen_image}:${var.image_tag}"
@@ -127,6 +162,8 @@ resource "kubernetes_stateful_set" "keygen" {
 
   depends_on = [
     kubernetes_namespace.shortener,
+    kubernetes_service_account.keygen,
+    google_service_account_iam_member.keygen_wi,
   ]
 }
 
@@ -151,6 +188,31 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "keygen-hpa" {
           type                = "Utilization"
           average_utilization = 70
         }
+      }
+    }
+  }
+
+  depends_on = [
+    kubernetes_namespace.shortener,
+    kubernetes_stateful_set.keygen,
+  ]
+}
+
+resource "kubernetes_pod_disruption_budget_v1" "keygen_pdb" {
+  metadata {
+    name      = "${var.app_name}-keygen-pdb"
+    namespace = kubernetes_namespace.shortener.metadata[0].name
+    labels = {
+      app = "${var.app_name}-keygen"
+    }
+  }
+  spec {
+    # Allow evicting at most one pod at a time (works even if replicas=1; may cause brief downtime)
+    max_unavailable = 1
+
+    selector {
+      match_labels = {
+        app = "${var.app_name}-keygen"
       }
     }
   }
