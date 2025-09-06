@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -115,6 +116,7 @@ func (h *ReaderHandler) redirectByKey(w http.ResponseWriter, r *http.Request, ke
 		return
 	}
 	if err != nil {
+		log.Printf("Error reading entry for key %q: %v", key, err)
 		http.Error(w, "failed to read entry", http.StatusInternalServerError)
 		return
 	}

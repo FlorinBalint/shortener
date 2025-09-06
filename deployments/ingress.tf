@@ -5,7 +5,9 @@ resource "kubernetes_ingress_v1" "shortener" {
     annotations = {
       "kubernetes.io/ingress.class" = "gce"
     }
-    labels = { app = var.app_name }
+    labels = {
+      app = var.app_name
+    }
   }
 
   spec {
@@ -32,6 +34,7 @@ resource "kubernetes_ingress_v1" "shortener" {
             }
           }
         }
+
         path {
           path      = "/"
           path_type = "Prefix"
@@ -47,4 +50,9 @@ resource "kubernetes_ingress_v1" "shortener" {
       }
     }
   }
+
+  depends_on = [
+    kubernetes_service.reader_svc,
+    kubernetes_service.writer_svc,
+  ]
 }

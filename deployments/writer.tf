@@ -1,6 +1,5 @@
 locals {
   writer_name        = "${var.app_name}-writer"
-  writer_secret_name = "${var.app_name}-writer-credentials"
   writer_image       = "writer"
   writer_port        = 8081
 }
@@ -18,6 +17,13 @@ resource "google_project_iam_member" "writer_datastore" {
   member  = "serviceAccount:${google_service_account.writer-sa.email}"
 }
 
+# Grant the GSA permissions it needs (adjust as required)
+resource "google_project_iam_member" "editor_memcache" {
+  project = local.actual_project
+  role    = "roles/memcache.editor"
+  member  = "serviceAccount:${google_service_account.writer-sa.email}"
+}
+
 # Allow the KSA to impersonate the GSA via Workload Identity
 resource "google_service_account_iam_member" "writer_wi" {
   service_account_id = google_service_account.writer-sa.name
@@ -31,7 +37,9 @@ resource "kubernetes_service_account" "writer" {
   metadata {
     name      = local.writer_name
     namespace = var.namespace
-    labels = { app = local.writer_name }
+    labels    = { 
+      app = local.writer_name 
+    }
 
     annotations = {
       # Bind this KSA to the GSA for Workload Identity
@@ -57,7 +65,7 @@ resource "kubernetes_service" "writer_svc" {
       port        = local.writer_port
       target_port = local.writer_port
     }
-    type = "LoadBalancer"   // required by GCE Ingress
+    type = "LoadBalancer" // required by GCE Ingress
   }
 }
 
@@ -89,50 +97,50 @@ resource "kubernetes_deployment" "writer" {
           image             = "${local.reg_region}-docker.pkg.dev/${local.actual_project}/${var.repo}/${local.writer_image}:${var.image_tag}"
           image_pull_policy = "Always"
 
-          port { 
-            name = "http"
-            container_port = local.writer_port 
+          port {
+            name           = "http"
+            container_port = local.writer_port
           }
 
           # Remove GOOGLE_APPLICATION_CREDENTIALS and secret mount.
           # ADC will use Workload Identity automatically.
-          env { 
-            name = "DS_ENDPOINT"
+          env {
+            name  = "DS_ENDPOINT"
             value = var.ds_endpoint
           }
-          env { 
-            name = "KEYGEN_BASE_URL"
-            value = "http://${var.app_name}-keygen-headless.${var.namespace}.svc.cluster.local:8083" 
+          env {
+            name  = "KEYGEN_BASE_URL"
+            value = "http://${var.app_name}-keygen-headless.${var.namespace}.svc.cluster.local:8083"
           }
-          env { 
-            name = "BIND_ADDR"
-            value = ":8081" 
+          env {
+            name  = "BIND_ADDR"
+            value = ":8081"
           }
 
-          readiness_probe { 
-            http_get { 
-              path = "/health"
-              port = local.writer_port 
-            } 
-            initial_delay_seconds = 3
-            period_seconds = 5 
-          }
-          liveness_probe  { 
+          readiness_probe {
             http_get {
               path = "/health"
               port = local.writer_port
-            } 
+            }
+            initial_delay_seconds = 3
+            period_seconds        = 5
+          }
+          liveness_probe {
+            http_get {
+              path = "/health"
+              port = local.writer_port
+            }
             initial_delay_seconds = 10
-            period_seconds = 10 
+            period_seconds        = 10
           }
 
           resources {
             requests = {
-              cpu = "50m"
+              cpu    = "50m"
               memory = "64Mi"
             }
-            limits   = {
-              cpu = "250m"
+            limits = {
+              cpu    = "250m"
               memory = "128Mi"
             }
           }
