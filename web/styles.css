@@ -1,0 +1,116 @@
+/* styles.css */
+:root {
+  --bg: #0f172a;
+  --panel: #111827;
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --accent: #22c55e;
+  --accent-2: #16a34a;
+  --error: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.container {
+  max-width: 680px;
+  margin: 5vh auto;
+  padding: 24px;
+  background: var(--panel);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: 1.6rem;
+}
+
+form {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 8px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: .95rem;
+}
+
+input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #1f2937;
+  background: #0b1220;
+  color: var(--text);
+  outline: none;
+}
+
+input:focus {
+  border-color: #334155;
+}
+
+button {
+  margin-top: 6px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #062612;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.result,
+.error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.result a {
+  color: #93c5fd;
+  word-break: break-all;
+}
+
+.result {
+  background: #052e1b;
+  border: 1px solid #134e4a;
+}
+
+.error {
+  background: #2a0b0b;
+  border: 1px solid #7f1d1d;
+  color: #fecaca;
+}
+
+.hidden {
+  display: none;
+}
+
+footer {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+footer a {
+  color: #a5b4fc;
+}

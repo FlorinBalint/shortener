@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Shortener</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <main class="container">
+    <h1>Create shorter URLs with our service</h1>
+    <form id="shorten-form" novalidate>
+      <label>
+        Shorten a long link
+        <input id="url_target" name="url_target" type="url" placeholder="https://example.com/very/long/url" required>
+      </label>
+      <label>
+        Custom alias (optional)
+        <input id="url_key" name="url_key" type="text" placeholder="Enter alias">
+      </label>
+      <button type="submit" id="submit-btn">Shorten</button>
+    </form>
+
+    <div id="result" class="result hidden"></div>
+    <div id="error" class="error hidden"></div>
+    <footer>
+      <a href="https://github.com/FlorinBalint/shortener" target="_blank" rel="noopener">About</a>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
