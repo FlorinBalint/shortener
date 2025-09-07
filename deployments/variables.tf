@@ -101,3 +101,9 @@ variable "ds_endpoint" {
   type        = string
   default     = ""
 }
+
+variable "memcache_instance_id" {
+  description = "Memorystore for Memcached instance ID to use for service discovery"
+  type        = string
+  default     = "shortener-memcache"
+}

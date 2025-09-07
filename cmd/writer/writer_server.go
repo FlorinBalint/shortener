@@ -55,7 +55,7 @@ func loadConfigFromEnv() WriterConfig {
 
 // Request handler with its dependencies.
 type WriterHandler struct {
-	store      *urlstore.Client
+	store      urlstore.Client
 	keygenBase string
 	httpClient *http.Client
 
@@ -69,7 +69,7 @@ func newWriterHandler(ctx context.Context, cfg WriterConfig) (*WriterHandler, er
 	if err != nil {
 		return nil, fmt.Errorf("datastore: %w", err)
 	}
-	store := urlstore.NewClient(dsClient, cfg.DSNamespace)
+	store := urlstore.NewClient(dsClient)
 
 	h := &WriterHandler{
 		store:      store,

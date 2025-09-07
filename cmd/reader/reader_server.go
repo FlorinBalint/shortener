@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
+	"github.com/google/gomemcache/memcache"
 
 	"github.com/FlorinBalint/shortener/pkg/gcputil"
 	"github.com/FlorinBalint/shortener/pkg/urlstore"
@@ -21,6 +22,8 @@ type ReaderConfig struct {
 	DSNamespace string
 	DSEndpoint  string
 	BindAddr    string
+	// Memcache discovery (from ConfigMap env)
+	MemcacheDiscoveryEndpoint string
 }
 
 func getenvDefault(k, def string) string {
@@ -33,28 +36,44 @@ func getenvDefault(k, def string) string {
 // Load config from environment variables, with defaults.
 func loadConfigFromEnv() ReaderConfig {
 	return ReaderConfig{
-		ProjectID:   getenvDefault("GCP_PROJECT", ""),
-		DSNamespace: getenvDefault("DS_NAMESPACE", ""),
-		DSEndpoint:  getenvDefault("DS_ENDPOINT", ""),
-		BindAddr:    getenvDefault("BIND_ADDR", ":8080"), // reader defaults to 8080
+		ProjectID:                 getenvDefault("GCP_PROJECT", ""),
+		DSNamespace:               getenvDefault("DS_NAMESPACE", ""),
+		DSEndpoint:                getenvDefault("DS_ENDPOINT", ""),
+		BindAddr:                  getenvDefault("BIND_ADDR", ":8080"), // reader defaults to 8080
+		MemcacheDiscoveryEndpoint: os.Getenv("MEMCACHE_DISCOVERY_ENDPOINT"),
 	}
 }
 
 // Request handler with its dependencies.
 type ReaderHandler struct {
-	store *urlstore.Client
+	store urlstore.Client
 
 	// cleanup for dependencies (store, datastore client)
 	closeFn func() error
 }
 
-// Construct the handler with dependencies (Datastore client, store).
+// Construct the handler with dependencies (Datastore client, store, optional Memcache via discovery).
 func newReaderHandler(ctx context.Context, cfg ReaderConfig) (*ReaderHandler, error) {
 	dsClient, err := gcputil.NewDSClient(ctx, cfg.ProjectID, cfg.DSEndpoint, cfg.DSNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("datastore: %w", err)
 	}
-	store := urlstore.NewClient(dsClient, cfg.DSNamespace)
+	base := urlstore.NewClient(dsClient)
+
+	var store urlstore.Client = base
+
+	// If discovery endpoint is provided, create a discovery memcache client and wrap with cache-aside.
+	if cfg.MemcacheDiscoveryEndpoint != "" {
+		mc, err := memcache.NewDiscoveryClient(cfg.MemcacheDiscoveryEndpoint, 5*time.Second)
+		if err != nil {
+			log.Printf("memcache discovery disabled (init failed for %s): %v", cfg.MemcacheDiscoveryEndpoint, err)
+		} else {
+			log.Printf("memcache discovery enabled: %s", cfg.MemcacheDiscoveryEndpoint)
+			store = base.WithCacheAside(mc)
+		}
+	} else {
+		log.Printf("memcache discovery not configured; using Datastore only")
+	}
 
 	h := &ReaderHandler{
 		store: store,

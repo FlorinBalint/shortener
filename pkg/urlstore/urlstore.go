@@ -5,32 +5,44 @@ import (
 	"time"
 
 	"github.com/FlorinBalint/shortener/pkg/gcputil"
+	"github.com/google/gomemcache/memcache"
 )
+
+// Client is the interface for URL storage.
+type Client interface {
+	Close() error
+	CreateEntry(ctx ctx.Context, key UrlKey, entry URLEntry) error
+	GetEntry(ctx ctx.Context, urlKey UrlKey) (URLEntry, error)
+}
 
 // DSClient is a minimal key->JSON datastore client.
 // JSON is stored as a single noindex property to avoid indexing limits.
-type Client struct {
-	client    *gcputil.DSClient
-	namespace string
+type DSClient struct {
+	client *gcputil.DSClient
 }
 
-func NewClient(client *gcputil.DSClient, namespace string) *Client {
-	return &Client{
-		client:    client,
-		namespace: namespace,
+var _ Client = (*DSClient)(nil)
+
+func NewClient(client *gcputil.DSClient) *DSClient {
+	return &DSClient{
+		client: client,
 	}
 }
 
-func (c *Client) Close() error {
+func (c *DSClient) Close() error {
 	return c.client.Close()
 }
 
-func (c *Client) CreateEntry(ctx ctx.Context, key UrlKey, entry URLEntry) error {
+func (c *DSClient) CreateEntry(ctx ctx.Context, key UrlKey, entry URLEntry) error {
 	return gcputil.PutNewValue(c.client, ctx, "url_entry", string(key), entry)
 }
 
-func (c *Client) GetEntry(ctx ctx.Context, urlKey UrlKey) (URLEntry, error) {
+func (c *DSClient) GetEntry(ctx ctx.Context, urlKey UrlKey) (URLEntry, error) {
 	return gcputil.GetValue[URLEntry](c.client, ctx, "url_entry", string(urlKey))
+}
+
+func (c *DSClient) WithCacheAside(cache *memcache.Client) *CachedClient {
+	return newCachedClient(c, cache)
 }
 
 type UrlKey string

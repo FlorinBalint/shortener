@@ -25,6 +25,11 @@ locals {
   )
 }
 
+provider "google-beta" {
+  project = local.actual_project
+  region  = join("-", slice(split("-", var.location), 0, 2))
+}
+
 resource "google_container_cluster" "primary" {
   project  = local.actual_project
   name     = var.cluster_name

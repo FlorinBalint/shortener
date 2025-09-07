@@ -106,6 +106,16 @@ resource "kubernetes_deployment" "reader" {
             value = ":8080"
           }
 
+          env {
+            name = "MEMCACHE_DISCOVERY_ENDPOINT"
+            value_from {
+              config_map_key_ref {
+                name = kubernetes_config_map.memcache_discovery.metadata[0].name
+                key  = "MEMCACHE_DISCOVERY_ENDPOINT"
+              }
+            }
+          }
+
           readiness_probe {
             http_get {
               path = "/health"
