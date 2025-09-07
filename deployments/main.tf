@@ -1,13 +1,6 @@
 # Detect from ADC and gcloud config (fallback)
 data "google_client_config" "default" {}
 
-data "external" "gcloud_project" {
-  program = [
-    "bash", "-lc",
-    "p=$(gcloud config get-value project 2>/dev/null || true); printf '{\"project\":\"%s\"}\n' \"$p\""
-  ]
-}
-
 locals {
   # Derive region from zone without regex
   parts          = split("-", var.location)
@@ -16,18 +9,6 @@ locals {
 
   # Kubeconfig for this module
   kubeconfig_path = "${path.module}/.kubeconfig"
-
-  # Auto-detected project (TF var -> gcloud config -> provider client_config)
-  actual_project = coalesce(
-    var.project_id,
-    try(data.external.gcloud_project.result.project, ""),
-    try(data.google_client_config.default.project, "")
-  )
-}
-
-provider "google-beta" {
-  project = local.actual_project
-  region  = join("-", slice(split("-", var.location), 0, 2))
 }
 
 resource "google_container_cluster" "primary" {

@@ -15,8 +15,8 @@ resource "kubernetes_service_account" "reader" {
   metadata {
     name      = local.reader_name
     namespace = var.namespace
-    labels = { 
-      app = local.reader_name 
+    labels = {
+      app = local.reader_name
     }
     annotations = {
       "iam.gke.io/gcp-service-account" = google_service_account.reader-sa.email
@@ -42,20 +42,26 @@ resource "kubernetes_service" "reader_svc" {
   metadata {
     name      = "${local.reader_name}-svc"
     namespace = var.namespace
-    labels = {
-      app = local.reader_name
+    labels    = { app = local.reader_name }
+    annotations = {
+      # Standalone NEG for port 8080 (managed by GKE)
+      "cloud.google.com/neg" = jsonencode({
+        exposed_ports = {
+          "8080" = {
+            name = "${var.app_name}-reader-neg"
+          }
+        }
+      })
     }
   }
   spec {
-    selector = {
-      app = local.reader_name
-    }
+    selector = { app = local.reader_name }
     port {
       name        = "http"
-      port        = local.reader_port
-      target_port = local.reader_port
+      port        = 8080
+      target_port = 8080
     }
-    type = "NodePort"
+    type = "ClusterIP"
   }
 }
 

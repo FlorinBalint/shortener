@@ -5,6 +5,7 @@ set -euo pipefail
 # Note: This script does NOT create or modify any Load Balancer. Use your existing GKE Ingress.
 #
 # Usage:
+#   STATIC_VERSION=v1 \                     # optional; defaults to v1; changes static asset paths
 #   PROJECT_ID=my-project \
 #   REGION=us-central1 \
 #   STATIC_BUCKET=shortener-static-my-project \   # optional; defaults to shortener-static-$PROJECT_ID
@@ -13,9 +14,10 @@ set -euo pipefail
 #
 # Requires: gcloud, gsutil, kubectl (not used here), node+npm (for npx esbuild)
 
+STATIC_VERSION="${STATIC_VERSION:-v1}"
 PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
 REGION="${REGION:-us-central1}"
-STATIC_BUCKET="${STATIC_BUCKET:-shortener-static-${PROJECT_ID}}"
+STATIC_BUCKET="${STATIC_BUCKET:-shortener-static-${PROJECT_ID}-${STATIC_VERSION}-${REGION}}"
 API_BASE="${API_BASE:-}"               # If empty, app uses relative URLs to the same host.
 # No LB/CDN provisioning in this script.
 
@@ -61,8 +63,8 @@ npx --yes esbuild "${CSS_SRC}" --minify --outfile="${BUILD_DIR}/styles.min.css" 
 
 # Update index.html to point to minified assets
 sed -E -i \
-  -e 's#app\.js#app.min.js#g' \
-  -e 's#styles\.css#styles.min.css#g' \
+  -e "s#app\.js#static/${STATIC_VERSION}/app.min.js#g" \
+  -e "s#styles\.css#static/${STATIC_VERSION}/styles.min.css#g" \
   "${BUILD_DIR}/index.html"
 
 # Create bucket if missing (Uniform access + Public)
@@ -77,14 +79,15 @@ gsutil iam ch allUsers:objectViewer "${BUCKET_URI}" >/dev/null || true
 
 # Upload (set gzip for text assets)
 echo "Uploading files to ${BUCKET_URI} ..."
-gsutil -m cp -z html,css,js "${BUILD_DIR}/index.html" "${BUCKET_URI}/index.html"
-gsutil -m cp -z js "${BUILD_DIR}/app.min.js" "${BUCKET_URI}/app.min.js"
-gsutil -m cp -z css "${BUILD_DIR}/styles.min.css" "${BUCKET_URI}/styles.min.css"
+# Upload to versioned paths
+gsutil -m cp -z html "${BUILD_DIR}/index.html" "${BUCKET_URI}/index.html"
+gsutil -m cp -z js   "${BUILD_DIR}/app.min.js" "${BUCKET_URI}/static/${STATIC_VERSION}/app.min.js"
+gsutil -m cp -z css  "${BUILD_DIR}/styles.min.css" "${BUCKET_URI}/static/${STATIC_VERSION}/styles.min.css"
 
 # Optional: website config and cache headers
 gsutil web set -m index.html "${BUCKET_URI}" >/dev/null || true
 gsutil setmeta -h "Cache-Control:public,max-age=600" "${BUCKET_URI}/index.html" >/dev/null || true
-gsutil setmeta -h "Cache-Control:public,max-age=86400,immutable" "${BUCKET_URI}/app.min.js" "${BUCKET_URI}/styles.min.css" >/dev/null || true
+gsutil setmeta -h "Cache-Control:public,max-age=86400,immutable" "${BUCKET_URI}/static/${STATIC_VERSION}/app.min.js" "${BUCKET_URI}/static/${STATIC_VERSION}/styles.min.css" >/dev/null || true
 
 SITE_URL="https://storage.googleapis.com/${STATIC_BUCKET}/index.html"
 echo "Deployed:"

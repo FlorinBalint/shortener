@@ -1,7 +1,7 @@
 locals {
-  writer_name        = "${var.app_name}-writer"
-  writer_image       = "writer"
-  writer_port        = 8081
+  writer_name  = "${var.app_name}-writer"
+  writer_image = "writer"
+  writer_port  = 8081
 }
 
 resource "google_service_account" "writer-sa" {
@@ -37,8 +37,8 @@ resource "kubernetes_service_account" "writer" {
   metadata {
     name      = local.writer_name
     namespace = var.namespace
-    labels    = { 
-      app = local.writer_name 
+    labels = {
+      app = local.writer_name
     }
 
     annotations = {
@@ -52,20 +52,25 @@ resource "kubernetes_service" "writer_svc" {
   metadata {
     name      = "${local.writer_name}-svc"
     namespace = var.namespace
-    labels = {
-      app = local.writer_name
+    labels    = { app = local.writer_name }
+    annotations = {
+      "cloud.google.com/neg" = jsonencode({
+        exposed_ports = {
+          "8081" = {
+            name = "${var.app_name}-writer-neg"
+          }
+        }
+      })
     }
   }
   spec {
-    selector = {
-      app = local.writer_name
-    }
+    selector = { app = local.writer_name }
     port {
       name        = "http"
-      port        = local.writer_port
-      target_port = local.writer_port
+      port        = 8081
+      target_port = 8081
     }
-    type = "LoadBalancer" // required by GCE Ingress
+    type = "ClusterIP"
   }
 }
 

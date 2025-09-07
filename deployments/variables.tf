@@ -1,3 +1,9 @@
+// Resolve region from zonal var.location (e.g., us-central1-a -> us-central1)
+locals {
+  gcp_region = join("-", slice(split("-", var.location), 0, 2))
+}
+
+# Optional var; empty means "derive from gcloud"
 variable "project_id" {
   description = "GCP project ID (optional; auto-detected if empty)"
   type        = string
@@ -103,7 +109,73 @@ variable "ds_endpoint" {
 }
 
 variable "memcache_instance_id" {
-  description = "Memorystore for Memcached instance ID to use for service discovery"
+  description = "Memorystore for Memcached instance ID"
   type        = string
   default     = "shortener-memcache"
+}
+
+variable "memcache_node_count" {
+  description = "Number of Memcached nodes (1..20)"
+  type        = number
+  default     = 3
+}
+
+variable "memcache_node_cpu" {
+  description = "vCPU per node (required by API: 1,2,4,...)"
+  type        = number
+  default     = 2
+}
+
+variable "memcache_node_memory_mb" {
+  description = "Memory per node in MB (e.g., 1024, 2048, 4096)"
+  type        = number
+  default     = 2048
+}
+
+variable "static_bucket" {
+  description = "Override GCS bucket name for static content"
+  type        = string
+  default     = null
+}
+
+variable "static_version" {
+  description = "Version prefix for static assets and bucket naming (e.g., v1)"
+  type        = string
+  default     = "v1"
+}
+
+variable "reader_port" {
+  description = "HTTP port exposed by reader Service"
+  type        = number
+  default     = 8080
+}
+
+variable "writer_port" {
+  description = "HTTP port exposed by writer Service"
+  type        = number
+  default     = 8081
+}
+
+variable "ssl_domains" {
+  description = "Domains for the managed SSL certificate (e.g., [\"short.example.com\"]). Must resolve to the LB IP."
+  type        = list(string)
+  default     = []
+}
+
+# Zones where your cluster runs. Leave empty to use the cluster location only.
+variable "lb_zones" {
+  description = "Zones to look for standalone NEGs. If empty, defaults to [var.location]."
+  type        = list(string)
+  default     = []
+}
+
+data "google_client_config" "current" {}
+
+locals {
+  // Prefer explicit var, then external gcloud (if defined), then provider client config
+  actual_project = coalesce(
+    var.project_id,
+    try(data.external.gcloud_project.result.project, ""),
+    try(data.google_client_config.current.project, "")
+  )
 }
