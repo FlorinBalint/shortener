@@ -276,7 +276,7 @@ func TestNextKey_MonotonicAndDecodable(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NextKey error: %v", err)
 		}
-		id, err := kf.encoder.Decode(key)
+		id, err := kf.base.Decode(key)
 		if err != nil {
 			t.Fatalf("Decode error: %v", err)
 		}
