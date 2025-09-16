@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/datastore"
@@ -126,6 +128,13 @@ func (h *WriterHandler) handleWrite(w http.ResponseWriter, r *http.Request) {
 		key = gen
 	}
 
+	// added: normalize and validate alias (allows slashes, blocks static/*)
+	key = normalizeAlias(key)
+	if err := validateAliasPath(key); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// If a custom key is provided, fail if it already exists.
 	if req.URLKey != "" {
 		_, err := h.store.GetEntry(r.Context(), urlstore.UrlKey(key))
@@ -199,6 +208,59 @@ func (h *WriterHandler) Close() error {
 	if h.closeFn != nil {
 		return h.closeFn()
 	}
+	return nil
+}
+
+// added: alias normalization + validation
+var (
+	// Allow path-like slugs: letters, digits, underscore, dash, and slash. 1..128 chars.
+	aliasPathRe = regexp.MustCompile(`^[A-Za-z0-9/_-]{1,128}$`)
+
+	// Reserved exact aliases (case-insensitive)
+	reservedExact = map[string]struct{}{
+		"static": {},
+		"write":  {},
+		"health": {},
+	}
+
+	// Reserved prefixes (case-insensitive); blocks "static/*"
+	reservedPrefixes = []string{"static/"}
+)
+
+func normalizeAlias(k string) string {
+	k = strings.TrimSpace(k)
+	// Accept clients sending "/foo/bar" by stripping a single leading slash.
+	k = strings.TrimPrefix(k, "/")
+	return k
+}
+
+func validateAliasPath(k string) error {
+	if k == "" {
+		return fmt.Errorf("url_key cannot be empty")
+	}
+	lk := strings.ToLower(k)
+
+	// Reserved exact matches
+	if _, ok := reservedExact[lk]; ok {
+		return fmt.Errorf("url_key is reserved")
+	}
+	// Reserved prefixes (e.g., static/...)
+	for _, p := range reservedPrefixes {
+		if strings.HasPrefix(lk, p) {
+			return fmt.Errorf("url_key is reserved")
+		}
+	}
+
+	// Disallow path traversal segments
+	if strings.Contains(k, "/./") || strings.Contains(k, "/../") || strings.HasPrefix(k, "../") || strings.HasSuffix(k, "/..") {
+		return fmt.Errorf("url_key contains invalid path segments")
+	}
+
+	// Only allow safe characters
+	if !aliasPathRe.MatchString(k) {
+		return fmt.Errorf("url_key must match %s", aliasPathRe.String())
+	}
+
 	return nil
 }
 
