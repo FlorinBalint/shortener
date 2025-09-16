@@ -66,6 +66,7 @@ resource "google_container_node_pool" "primary_nodes" {
     labels = {
       app = var.app_name
     }
+    tags = ["gke-primary-nodes"]
   }
 
   management {

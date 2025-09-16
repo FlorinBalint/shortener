@@ -12,22 +12,6 @@ locals {
   writer_neg_pairs = { for z in local.cluster_zones : z => { name = local.writer_neg_base, zone = z } }
 }
 
-# Read live Services to get neg-status (controller-added)
-data "kubernetes_service" "reader_live" {
-  metadata {
-    name      = kubernetes_service.reader_svc.metadata[0].name
-    namespace = kubernetes_service.reader_svc.metadata[0].namespace
-  }
-  depends_on = [kubernetes_service.reader_svc]
-}
-
-data "kubernetes_service" "writer_live" {
-  metadata {
-    name      = kubernetes_service.writer_svc.metadata[0].name
-    namespace = kubernetes_service.writer_svc.metadata[0].namespace
-  }
-  depends_on = [kubernetes_service.writer_svc]
-}
 
 # GCS backend (static root)
 resource "google_compute_backend_bucket" "static_root" {
@@ -158,9 +142,8 @@ resource "google_compute_global_address" "lb_ip" {
   name = "${var.app_name}-lb-ip"
 }
 
-# Managed SSL certificate (domains must point to the IP below)
-resource "google_compute_managed_ssl_certificate" "shortener" {
-  name = "${var.app_name}-managed-cert"
+resource "google_compute_managed_ssl_certificate" "shortener_new" {
+  name = "${var.app_name}-managed-cert-new"
   managed {
     domains = var.ssl_domains
   }
@@ -168,9 +151,11 @@ resource "google_compute_managed_ssl_certificate" "shortener" {
 
 # Use the same URL map as before
 resource "google_compute_target_https_proxy" "https_proxy" {
-  name             = "${var.app_name}-https-proxy"
-  url_map          = google_compute_url_map.shortener.id
-  ssl_certificates = [google_compute_managed_ssl_certificate.shortener.id]
+  name    = "${var.app_name}-https-proxy"
+  url_map = google_compute_url_map.shortener.id
+  ssl_certificates = [
+    google_compute_managed_ssl_certificate.shortener_new.id
+  ]
 }
 
 # HTTPS forwarding rule (443) using the reserved IP
@@ -179,6 +164,20 @@ resource "google_compute_global_forwarding_rule" "https_fr" {
   ip_address            = google_compute_global_address.lb_ip.address
   port_range            = "443"
   target                = google_compute_target_https_proxy.https_proxy.id
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  ip_protocol           = "TCP"
+}
+
+resource "google_compute_target_http_proxy" "http_proxy" {
+  name    = "${var.app_name}-http-proxy"
+  url_map = google_compute_url_map.shortener.id
+}
+
+resource "google_compute_global_forwarding_rule" "http_fr" {
+  name                  = "${var.app_name}-http-fr"
+  ip_address            = google_compute_global_address.lb_ip.address
+  port_range            = "80"
+  target                = google_compute_target_http_proxy.http_proxy.id
   load_balancing_scheme = "EXTERNAL_MANAGED"
   ip_protocol           = "TCP"
 }

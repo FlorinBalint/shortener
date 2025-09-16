@@ -44,7 +44,6 @@ resource "kubernetes_service" "reader_svc" {
     namespace = var.namespace
     labels    = { app = local.reader_name }
     annotations = {
-      # Standalone NEG for port 8080 (managed by GKE)
       "cloud.google.com/neg" = jsonencode({
         exposed_ports = {
           "8080" = {
