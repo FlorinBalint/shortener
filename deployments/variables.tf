@@ -141,7 +141,7 @@ variable "static_bucket" {
 variable "static_version" {
   description = "Version prefix for static assets and bucket naming (e.g., v1)"
   type        = string
-  default     = "v1"
+  default     = "v1_2"
 }
 
 variable "reader_port" {

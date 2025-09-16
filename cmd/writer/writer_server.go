@@ -218,13 +218,21 @@ var (
 
 	// Reserved exact aliases (case-insensitive)
 	reservedExact = map[string]struct{}{
-		"static": {},
-		"write":  {},
-		"health": {},
+		"health":      {},
+		"write":       {},
+		"index.html":  {},
+		"favicon.ico": {},
+		"robots.txt":  {},
+		"sitemap.xml": {},
 	}
 
 	// Reserved prefixes (case-insensitive); blocks "static/*"
-	reservedPrefixes = []string{"static/"}
+	reservedPrefixes = []string{
+		"write/",
+		"health/",
+		"static/",
+		".well-known/",
+	}
 )
 
 func normalizeAlias(k string) string {

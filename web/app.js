@@ -3,62 +3,109 @@
 // Otherwise, set it to your Ingress base URL, e.g. "https://short.example.com".
 const API_BASE = "";
 
-const form = document.getElementById("shorten-form");
-const urlTarget = document.getElementById("url_target");
-const urlKey = document.getElementById("url_key");
-const resultEl = document.getElementById("result");
-const errorEl = document.getElementById("error");
-const submitBtn = document.getElementById("submit-btn");
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("shorten-form");
+  const urlInput = document.getElementById("url_target");
+  const aliasInput = document.getElementById("url_key");
+  const btn = document.getElementById("submit-btn");
+  const resultEl = document.getElementById("result");
+  const errorEl = document.getElementById("error");
 
-function showResult(shortKey, target) {
-  const origin = window.location.origin;
-  const shortUrl = `${origin}/${encodeURIComponent(shortKey)}`;
-  resultEl.classList.remove("hidden");
-  resultEl.innerHTML = `Short link: <a href="${shortUrl}" target="_blank" rel="noopener">${shortUrl}</a><br><small>→ ${escapeHtml(
-    target
-  )}</small>`;
-  errorEl.classList.add("hidden");
-}
-function showError(msg) {
-  errorEl.textContent = msg;
-  errorEl.classList.remove("hidden");
-  resultEl.classList.add("hidden");
-}
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-}
+  const hide = (el) => el.classList.add("hidden");
+  const show = (el) => el.classList.remove("hidden");
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const target = urlTarget.value.trim();
-  const key = urlKey.value.trim();
-  if (!target) {
-    showError("Please provide a valid URL.");
-    return;
+  function showError(msg) {
+    resultEl.innerHTML = "";
+    hide(resultEl);
+    errorEl.textContent = msg;
+    show(errorEl);
   }
-  submitBtn.disabled = true;
-  try {
-    const resp = await fetch(`${API_BASE}/write/v1`, {
+
+  function showResult(shortUrl, targetUrl) {
+    errorEl.textContent = "";
+    hide(errorEl);
+    resultEl.innerHTML = `
+      <div>Short URL created:</div>
+      <div><a href="${shortUrl}" target="_blank" rel="noopener">${shortUrl}</a></div>
+      <div style="margin-top:6px; color:#9ca3af">→ ${escapeHtml(targetUrl)}</div>
+    `;
+    show(resultEl);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  async function postJson(url, body) {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(key ? { url_target: target, url_key: key } : { url_target: target }),
+      body: JSON.stringify(body),
+      // Credentials not needed when same-origin and no cookies
     });
-    const text = await resp.text();
-    if (!resp.ok) {
-      let msg = "Failed to create short URL.";
-      try {
-        const j = JSON.parse(text);
-        if (j.error) msg = j.error;
-      } catch {}
-      showError(`${msg} (HTTP ${resp.status})`);
+    let text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch { }
+    return { res, json, text };
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    hide(resultEl);
+    hide(errorEl);
+
+    const urlTarget = urlInput.value.trim();
+    const urlKey = aliasInput.value.trim();
+
+    // Basic client-side URL validation
+    try { new URL(urlTarget); } catch {
+      showError("Please enter a valid URL (including https://).");
       return;
     }
-    const data = JSON.parse(text);
-    showResult(data.url_key, data.url_target);
-    form.reset();
-  } catch (err) {
-    showError(`Network error: ${err}`);
-  } finally {
-    submitBtn.disabled = false;
-  }
+
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = "Shortening...";
+
+    try {
+      const { res, json, text } = await postJson("/write/v1", {
+        url_target: urlTarget,
+        url_key: urlKey || undefined
+      });
+
+      if (res.ok) {
+        // Server returns {URLKey, URLTarget} (Go struct) or may use lower-case keys.
+        const returnedKey = json?.URLKey ?? json?.url_key ?? urlKey;
+        const returnedTarget = json?.URLTarget ?? json?.url_target ?? urlTarget;
+        const shortUrl = `${window.location.origin}/${returnedKey}`;
+        showResult(shortUrl, returnedTarget);
+        form.reset();
+        return;
+      }
+
+      // Friendly error messages by status code
+      if (res.status === 400) {
+        // Path is illegal (e.g., reserved like static/*, invalid chars)
+        const msg = json?.error || text || "The alias/path is not allowed. Use letters, numbers, - or _. Avoid reserved paths like static/.";
+        showError(msg);
+      } else if (res.status === 409) {
+        // Alias already in use
+        const msg = json?.error || text || "That alias is already in use. Please choose another.";
+        showError(msg);
+      } else if (res.status >= 500) {
+        // Server-side issue
+        showError("A server error occurred. Please try again in a moment.");
+      } else {
+        // Other non-2xx
+        showError(`Request failed (${res.status}). ${text || "Please try again."}`);
+      }
+    } catch (err) {
+      showError("Network error. Check your connection and try again.");
+    } finally {
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+    }
+  });
 });
