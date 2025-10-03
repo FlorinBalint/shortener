@@ -111,6 +111,7 @@ resource "kubernetes_deployment" "reader" {
             value = ":8080"
           }
 
+          /*
           env {
             name = "MEMCACHE_DISCOVERY_ENDPOINT"
             value_from {
@@ -120,6 +121,7 @@ resource "kubernetes_deployment" "reader" {
               }
             }
           }
+          */
 
           readiness_probe {
             http_get {
